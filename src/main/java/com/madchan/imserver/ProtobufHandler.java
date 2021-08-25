@@ -13,8 +13,9 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package io.netty.example.http.websocketx.benchmarkserver;
+package com.madchan.imserver;
 
+import com.madchan.imserver.bean.wrapper.MessageWrapperDTO;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.channel.ChannelFuture;
@@ -23,44 +24,42 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.ChannelMatchers;
-import io.netty.handler.codec.http.DefaultFullHttpResponse;
-import io.netty.handler.codec.http.FullHttpRequest;
-import io.netty.handler.codec.http.FullHttpResponse;
-import io.netty.handler.codec.http.HttpHeaderNames;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.HttpUtil;
+import io.netty.handler.codec.http.*;
 import io.netty.handler.codec.http.websocketx.*;
 
-import static io.netty.handler.codec.http.HttpMethod.*;
+import static io.netty.handler.codec.http.HttpMethod.GET;
 import static io.netty.handler.codec.http.HttpResponseStatus.*;
 
 /**
  * 处理握手和消息
  */
-public class WebSocketServerHandler extends SimpleChannelInboundHandler<Object> {
+public class ProtobufHandler extends SimpleChannelInboundHandler<MessageWrapperDTO.MessageWrapper> {
 
+    private static final String TAG = "ProtobufHandler";
     private static final String WEBSOCKET_PATH = "/websocket";
 
     private WebSocketServerHandshaker handshaker;
     private final ChannelGroup group;
 
-    public WebSocketServerHandler(ChannelGroup group) {
+    public ProtobufHandler(ChannelGroup group) {
         this.group = group;
     }
 
-
     /**
      * 当有传入的消息都会回调；
-     *
      * @param ctx
      * @param msg
      */
     @Override
-    public void channelRead0(ChannelHandlerContext ctx, Object msg) {
-        if (msg instanceof FullHttpRequest) {
-            handleHttpRequest(ctx, (FullHttpRequest) msg);
-        } else if (msg instanceof WebSocketFrame) {
-            handleWebSocketFrame(ctx, (WebSocketFrame) msg);
+    protected void channelRead0(ChannelHandlerContext ctx, MessageWrapperDTO.MessageWrapper msg) throws Exception {
+        System.out.println(TAG + " channelRead0: msg = " + msg);
+        switch (msg.getWrapperType()) {
+            case WRAPPER_TYPE_PING:
+                System.out.println("WRAPPER_TYPE_PING");
+                break;
+            case WRAPPER_TYPE_MESSAGE:
+                System.out.println("WRAPPER_TYPE_MESSAGE");
+                break;
         }
     }
 
@@ -196,6 +195,4 @@ public class WebSocketServerHandler extends SimpleChannelInboundHandler<Object> 
             super.userEventTriggered(ctx, evt);
         }
     }
-
-
 }

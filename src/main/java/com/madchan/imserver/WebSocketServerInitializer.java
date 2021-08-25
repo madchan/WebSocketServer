@@ -13,8 +13,9 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package io.netty.example.http.websocketx.benchmarkserver;
+package com.madchan.imserver;
 
+import com.madchan.imserver.bean.wrapper.MessageWrapperDTO;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.group.ChannelGroup;
@@ -23,6 +24,9 @@ import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 import io.netty.handler.codec.http.websocketx.extensions.compression.WebSocketServerCompressionHandler;
+import io.netty.handler.codec.protobuf.ProtobufDecoder;
+import io.netty.handler.codec.protobuf.ProtobufEncoder;
+import io.netty.handler.codec.protobuf.ProtobufVarint32LengthFieldPrepender;
 import io.netty.handler.ssl.SslContext;
 
 /**
@@ -51,5 +55,9 @@ public class WebSocketServerInitializer extends ChannelInitializer<SocketChannel
         pipeline.addLast(new WebSocketServerCompressionHandler());
         pipeline.addLast(new WebSocketServerProtocolHandler(WEBSOCKET_PATH, null, true));
         pipeline.addLast(new WebSocketServerHandler(channelGroup));
+        pipeline.addLast(new ProtobufEncoder());
+        pipeline.addLast(new ProtobufDecoder(MessageWrapperDTO.MessageWrapper.getDefaultInstance()));
+        pipeline.addLast(new ProtobufVarint32LengthFieldPrepender());
+//        pipeline.addLast(new ProtobufHandler(channelGroup));
     }
 }

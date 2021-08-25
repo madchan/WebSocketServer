@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+option java_package = "com.madchan.imserver.bean.dto";
+option java_outer_classname = "MessageDTO";
+
+message Message {
+    enum MessageType {
+        MESSAGE_TYPE_UNSPECIFIED = 0;    // 未指定
+        MESSAGE_TYPE_TEXT = 1;   // 文本消息
+        MESSAGE_TYPE_IMAGE = 2;   // 图片消息
+        MESSAGE_TYPE_AUDIO = 3;   // 音频消息
+        MESSAGE_TYPE_VIDEO = 4;   // 视频消息
+        MESSAGE_TYPE_FILE = 5;   // 文件消息
+        MESSAGE_TYPE_CONTACT = 6;   // 名片消息
+        MESSAGE_TYPE_LOCATION = 7;   // 位置消息
+        MESSAGE_TYPE_EMOTION = 8;   // 表情消息
+        MESSAGE_TYPE_URL = 10;   // 链接消息
+    }
+    //消息唯一值
+    uint64 message_id = 1;
+    //消息类型
+    MessageType message_type = 2;
+    //消息发送用户
+    string sender_id = 3;
+    //消息目标用户
+    string target_id = 4;
+    //消息时间戳
+    uint64 timestamp       = 5;
+    //消息内容
+    bytes content          = 6;
+}
+
