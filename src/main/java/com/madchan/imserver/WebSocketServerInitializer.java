@@ -55,9 +55,9 @@ public class WebSocketServerInitializer extends ChannelInitializer<SocketChannel
         pipeline.addLast(new WebSocketServerCompressionHandler());
         pipeline.addLast(new WebSocketServerProtocolHandler(WEBSOCKET_PATH, null, true));
         pipeline.addLast(new WebSocketServerHandler(channelGroup));
-        pipeline.addLast(new ProtobufEncoder());
         pipeline.addLast(new ProtobufDecoder(MessageWrapperDTO.MessageWrapper.getDefaultInstance()));
         pipeline.addLast(new ProtobufVarint32LengthFieldPrepender());
-//        pipeline.addLast(new ProtobufHandler(channelGroup));
+        pipeline.addLast(new ProtobufHandler(channelGroup));
+        pipeline.addLast(new ProtobufEncoder());
     }
 }

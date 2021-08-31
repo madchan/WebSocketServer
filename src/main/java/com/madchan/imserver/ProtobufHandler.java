@@ -1,34 +1,13 @@
-/*
- * Copyright 2014 The Netty Project
- *
- * The Netty Project licenses this file to you under the Apache License,
- * version 2.0 (the "License"); you may not use this file except in compliance
- * with the License. You may obtain a copy of the License at:
- *
- *   https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations
- * under the License.
- */
 package com.madchan.imserver;
 
 import com.madchan.imserver.bean.wrapper.MessageWrapperDTO;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufUtil;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.group.ChannelGroup;
-import io.netty.channel.group.ChannelMatchers;
-import io.netty.handler.codec.http.*;
-import io.netty.handler.codec.http.websocketx.*;
-
-import static io.netty.handler.codec.http.HttpMethod.GET;
-import static io.netty.handler.codec.http.HttpResponseStatus.*;
+import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 
 /**
  * 处理握手和消息
@@ -36,9 +15,7 @@ import static io.netty.handler.codec.http.HttpResponseStatus.*;
 public class ProtobufHandler extends SimpleChannelInboundHandler<MessageWrapperDTO.MessageWrapper> {
 
     private static final String TAG = "ProtobufHandler";
-    private static final String WEBSOCKET_PATH = "/websocket";
 
-    private WebSocketServerHandshaker handshaker;
     private final ChannelGroup group;
 
     public ProtobufHandler(ChannelGroup group) {
@@ -56,6 +33,12 @@ public class ProtobufHandler extends SimpleChannelInboundHandler<MessageWrapperD
         switch (msg.getWrapperType()) {
             case WRAPPER_TYPE_PING:
                 System.out.println("WRAPPER_TYPE_PING");
+                long wrapperId = System.currentTimeMillis();
+                MessageWrapperDTO.MessageWrapper messageWrapper = MessageWrapperDTO.MessageWrapper.newBuilder()
+                        .setWrapperId(wrapperId)
+                        .setWrapperType(MessageWrapperDTO.MessageWrapper.WrapperType.WRAPPER_TYPE_PONG)
+                        .build();
+                group.writeAndFlush(new BinaryWebSocketFrame(Unpooled.wrappedBuffer(messageWrapper.toByteArray())).retain());
                 break;
             case WRAPPER_TYPE_MESSAGE:
                 System.out.println("WRAPPER_TYPE_MESSAGE");
@@ -73,91 +56,6 @@ public class ProtobufHandler extends SimpleChannelInboundHandler<MessageWrapperD
         ctx.flush();
     }
 
-    private void handleHttpRequest(ChannelHandlerContext ctx, FullHttpRequest req) {
-        // Handle a bad request.
-        if (!req.decoderResult().isSuccess()) {
-            sendHttpResponse(ctx, req, new DefaultFullHttpResponse(req.protocolVersion(), BAD_REQUEST,
-                    ctx.alloc().buffer(0)));
-            return;
-        }
-
-        // Allow only GET methods.
-        if (!GET.equals(req.method())) {
-            sendHttpResponse(ctx, req, new DefaultFullHttpResponse(req.protocolVersion(), FORBIDDEN,
-                    ctx.alloc().buffer(0)));
-            return;
-        }
-
-        // Send the demo page and favicon.ico
-        if ("/".equals(req.uri())) {
-            ByteBuf content = WebSocketServerBenchmarkPage.getContent(getWebSocketLocation(req));
-            FullHttpResponse res = new DefaultFullHttpResponse(req.protocolVersion(), OK, content);
-
-            res.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/html; charset=UTF-8");
-            HttpUtil.setContentLength(res, content.readableBytes());
-
-            sendHttpResponse(ctx, req, res);
-            return;
-        }
-
-        if ("/favicon.ico".equals(req.uri())) {
-            FullHttpResponse res = new DefaultFullHttpResponse(req.protocolVersion(), NOT_FOUND,
-                    ctx.alloc().buffer(0));
-            sendHttpResponse(ctx, req, res);
-            return;
-        }
-
-        // Handshake
-        WebSocketServerHandshakerFactory wsFactory = new WebSocketServerHandshakerFactory(
-                getWebSocketLocation(req), null, true, 5 * 1024 * 1024);
-        handshaker = wsFactory.newHandshaker(req);
-        if (handshaker == null) {
-            WebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel());
-        } else {
-            handshaker.handshake(ctx.channel(), req);
-        }
-    }
-
-    private void handleWebSocketFrame(ChannelHandlerContext ctx, WebSocketFrame frame) {
-
-        // 关闭帧
-        if (frame instanceof CloseWebSocketFrame) {
-            handshaker.close(ctx.channel(), (CloseWebSocketFrame) frame.retain());
-            return;
-        }
-        // Ping帧
-        if (frame instanceof PingWebSocketFrame) {
-            ctx.write(new PongWebSocketFrame(frame.content().retain()));
-            return;
-        }
-        // 对于文本帧和二进制数据帧，将数据简单地回送给了远程节点。
-        if (frame instanceof TextWebSocketFrame) {
-//            ctx.write(frame.retain());
-            group.writeAndFlush(frame.retain(), ChannelMatchers.isNot(ctx.channel()));
-            return;
-        }
-        if (frame instanceof BinaryWebSocketFrame) {
-//            ctx.write(frame.retain());
-            group.writeAndFlush(frame.retain(), ChannelMatchers.isNot(ctx.channel()));
-        }
-    }
-
-    private static void sendHttpResponse(ChannelHandlerContext ctx, FullHttpRequest req, FullHttpResponse res) {
-        // Generate an error page if response getStatus code is not OK (200).
-        HttpResponseStatus responseStatus = res.status();
-        if (responseStatus.code() != 200) {
-            ByteBufUtil.writeUtf8(res.content(), responseStatus.toString());
-            HttpUtil.setContentLength(res, res.content().readableBytes());
-        }
-        // Send the response and close the connection if necessary.
-        boolean keepAlive = HttpUtil.isKeepAlive(req) && responseStatus.code() == 200;
-        HttpUtil.setKeepAlive(res, keepAlive);
-        ChannelFuture future = ctx.write(res); // Flushed in channelReadComplete()
-        if (!keepAlive) {
-            future.addListener(ChannelFutureListener.CLOSE);
-        }
-    }
-
     /**
      * 在读取操作期间，有异常抛出时会调用。
      * <p>
@@ -173,15 +71,6 @@ public class ProtobufHandler extends SimpleChannelInboundHandler<MessageWrapperD
         cause.printStackTrace();
         // 关闭该Channel
         ctx.close();
-    }
-
-    private static String getWebSocketLocation(FullHttpRequest req) {
-        String location = req.headers().get(HttpHeaderNames.HOST) + WEBSOCKET_PATH;
-        if (WebSocketServer.SSL) {
-            return "wss://" + location;
-        } else {
-            return "ws://" + location;
-        }
     }
 
     @Override
