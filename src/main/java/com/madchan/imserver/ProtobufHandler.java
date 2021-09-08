@@ -5,6 +5,7 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.group.ChannelGroup;
+import io.netty.channel.group.ChannelMatchers;
 import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
@@ -33,15 +34,15 @@ public class ProtobufHandler extends SimpleChannelInboundHandler<MessageWrapperD
         switch (msg.getWrapperType()) {
             case WRAPPER_TYPE_PING:
                 System.out.println("WRAPPER_TYPE_PING");
-                long wrapperId = System.currentTimeMillis();
                 MessageWrapperDTO.MessageWrapper messageWrapper = MessageWrapperDTO.MessageWrapper.newBuilder()
-                        .setWrapperId(wrapperId)
+                        .setWrapperId(msg.getWrapperId())
                         .setWrapperType(MessageWrapperDTO.MessageWrapper.WrapperType.WRAPPER_TYPE_PONG)
                         .build();
-                group.writeAndFlush(new BinaryWebSocketFrame(Unpooled.wrappedBuffer(messageWrapper.toByteArray())).retain());
+                group.writeAndFlush(new BinaryWebSocketFrame(Unpooled.wrappedBuffer(messageWrapper.toByteArray())).retain(), ChannelMatchers.is(ctx.channel()));
                 break;
             case WRAPPER_TYPE_MESSAGE:
                 System.out.println("WRAPPER_TYPE_MESSAGE");
+                group.writeAndFlush(new BinaryWebSocketFrame(Unpooled.wrappedBuffer(msg.toByteArray())).retain(), ChannelMatchers.isNot(ctx.channel()));
                 break;
         }
     }
